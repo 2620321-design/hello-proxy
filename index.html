@@ -1,0 +1,42 @@
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    
+    // 사용법: https://workers.dev
+    const targetUrl = url.searchParams.get('url');
+    
+    if (!targetUrl) {
+      return new Response(
+        '사용법: 주소창 끝에 ?url=https://원하는사이트주소 를 붙이세요.\n예시: ' + url.origin + '/?url=https://google.com', 
+        { status: 200, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
+      );
+    }
+
+    try {
+      // 대상 사이트로 요청 전달 및 헤더 변환
+      const modifiedRequest = new Request(targetUrl, {
+        method: request.method,
+        headers: new Headers(request.headers),
+        body: request.body,
+        redirect: 'manual'
+      });
+
+      // 우회 차단 방지를 위한 유저 에이전트 설정
+      modifiedRequest.headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+      
+      const response = await fetch(modifiedRequest);
+      
+      // CORS 제한을 해제하여 디벗 브라우저에서 잘 열리도록 설정
+      const newHeaders = new Headers(response.headers);
+      newHeaders.set('Access-Control-Allow-Origin', '*');
+      newHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS');
+      
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: newHeaders
+      });
+    } catch (err) {
+      return new Response('사이트를 불러오는 중 오류가 발생했습니다: ' + err.message, { status: 500 });
+    }
+  },
